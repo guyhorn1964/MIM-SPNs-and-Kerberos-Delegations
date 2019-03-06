@@ -1,10 +1,7 @@
 # MIM-SPNs-and-Kerberos-Delegations
-PowerShell module to get, add and remove Service Principal Names and Kerberos Delegations for MIM service accounts. This module helps preventing mistakes by tying together service_account, SPN and delegation for MIM.
+PowerShell module to get, add and remove Service Principal Names and Kerberos Delegations for MIM service accounts. This module helps preventing mistakes by tying together service_account, SPN and delegation for MIM. The Remove-SPNsAndKerberosDelegation has a safety feature. It lets you see what your'e going to remove. You must type 'Yes' before something happens.
 
-DESCRIPTION
-This module helps preventing mistakes by tying together service_account, SPN and delegation for MIM.
-
-
+Logics ===>>>
 
 MIM needs to set two Service Principal Names:
 1) http/<custom portal name> will be controlled by the 'Mimpool' account that runs the IIS application Pool.
@@ -16,8 +13,10 @@ MIM needs to delegate two Kerberos names:
 2) 'Mimservice' may be allowed to delegate to fimservice/<MIM service server name> or fimservice/<MIM service server custom name>. 
 So Mimpool is delegating to fimservice/<...> and Mimservice is also delegating to fimservice/<...>. That's a design decision of the application.
 
+Credits to: https://social.technet.microsoft.com/wiki/contents/articles/3385.fim-2010-kerberos-authentication-setup.aspx
+Credits to Cookie.Monster (Microsoft MVP) https://gallery.technet.microsoft.com/scriptcenter/Get-SPN-Get-Service-3bd5524a
 
-<##########################################################>
+<####################### PowerShell dump under ###################################>
 
 
 
