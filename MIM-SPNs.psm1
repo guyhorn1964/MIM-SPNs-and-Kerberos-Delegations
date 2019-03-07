@@ -42,56 +42,70 @@ function Remove-SPNsAndKerberosDelegation ([Parameter(Mandatory=$true)]$ServiceA
    So Mimpool is delegating to fimservice/<...> and Mimservice is also delegating to fimservice/<...>. That's a design decision of the application.
 .EXAMPLE
    Example of how to use this cmdlet to delegate SPNs in a three tier scenario with only one service server. 
-   Add-SPNsAndKerberosDelegation -domain_dns_name test.one -ServiceAccountName mimservice -service_name fimservice/mimservicecli -delegate_to_service_name fimservice/mimservicecli
-   Add-SPNsAndKerberosDelegation -domain_dns_name test.one -ServiceAccountName mimpool -service_name http/newmim -delegate_to_service_name fimservice/mimservicecli
+   Add-SPNsAndKerberosDelegation -ServiceAccountName mimpool -associate_with_service_name http/newmim.test.one -delegate_to_service_name fimservice/mimservicecli.test.one
+   Add-SPNsAndKerberosDelegation -ServiceAccountName mimservice -associate_with_service_name fimservice/mimservicecli.test.one -delegate_to_service_name fimservice/mimservicecli.test.one 
    
 .EXAMPLE
    Another example of how to use this cmdlet in a three tier scenario where a custom dns name is used for the fimservice servers NLB. 
-   Add-SPNsAndKerberosDelegation -domain_dns_name test.one -ServiceAccountName mimservice -service_name fimservice/mimservicenlb -delegate_to_service_name fimservice/mimservicenlb
-   Add-SPNsAndKerberosDelegation -domain_dns_name test.one -ServiceAccountName mimpool -service_name http/newmim -delegate_to_service_name fimservice/mimservicenlb
+   Add-SPNsAndKerberosDelegation -ServiceAccountName mimpool -associate_with_service_name http/newmim.test.one -delegate_to_service_name fimservice/mimservicenlb.test.one
+   Add-SPNsAndKerberosDelegation -ServiceAccountName mimservice -associate_with_service_name fimservice/mimservicenlb.test.one -delegate_to_service_name fimservice/mimservicenlb.test.one 
 
 #>
 function Add-SPNsAndKerberosDelegation 
 {
-
     Param
     (
-        [Parameter(Mandatory=$true)]$domain_dns_name,
         [Parameter(Mandatory=$true)]$ServiceAccountName,
-        [Parameter(Mandatory=$true)]$service_name,
+        [Parameter(Mandatory=$true)]$associate_with_service_name,
         [Parameter(Mandatory=$true)]$delegate_to_service_name
     )
-    Write-Host "!! Log on as domain admin. Start PowerShell ISE as administrator !!" -ForegroundColor Cyan
-    Write-Host "!! Create DNS A-record for $spnfqdn. The IP address is the one of the MIMPortal server !!" -ForegroundColor Cyan
-    Write-Host "!! Control the SPN's. Type Yes to go on. Type no or enter to skip the script. !!" -ForegroundColor Cyan
-    Write-host "!! Delegating spnfqdn and spnrdn: $spnfqdn,$spnrdn to service account: $Domain\$ServiceAccountName !!" -ForegroundColor Cyan
-    $go = Read-Host -Prompt "Type Yes to go on. Type no or enter to skip the script."
-    if ($go -eq 'Yes')
-    {
-        # check and prepare params params
-        ## Check $service_name = "http/newmim"
-        (Resolve-DnsName -Name $service_name.Split('/')[1]).name # DNS A record fqdn
-        ## Check $delegate_to_service_name = "fimservice/mimservicecli"
-        (Resolve-DnsName -Name $delegate_to_service_name.Split('/')[1]).name # DNS A record fqdn
-        if ($error)
+        Write-Host "Associating service_account:$ServiceAccountName with service:$associate_with_service_name and allowing the same service_account Kerberos delegation to service:$delegate_to_service_name." -ForegroundColor Cyan
+        function Get-ShortName ($long_name)
         {
-            throw $error
-            exit
+            #$long_name = 'asdf//asdf.asdf.asdf.rewt'
+            if (($long_name -like '*//*') -or ($long_name -like '*:*') -or($long_name -notlike '*.*'))
+            {
+                throw 'The long name must have this format: http/something.something... or http/something.something... It may not contain ":" or "//" '
+                $error.Clear()
+                exit
+            }
+            $first_part = $long_name.Split('/')[0]
+            $rest = $long_name.Split('/')[1]
+            $second_part = $rest.Split('.')[0]
+            $short_service_name = $first_part + '/' + $second_part
+            return $short_service_name
         }
-        
+        $short_service_name = Get-ShortName -long_name $associate_with_service_name
+        $short_delegate_to_name  =  Get-ShortName $delegate_to_service_name
         # set spn's
-        setspn /s $service_name $ServiceAccountName
-        setspn /s ($service_name + '.' + $domain_dns_name) $ServiceAccountName
+
+        # Set spn short name
+        Write-Host "Try:\> setspn /s $short_service_name $ServiceAccountName" -ForegroundColor Cyan
+        setspn /s $short_service_name $ServiceAccountName
+        # Set spn long name
+        Write-Host "Try:\> setspn /s $associate_with_service_name $ServiceAccountName" -ForegroundColor Cyan
+        setspn /s $associate_with_service_name $ServiceAccountName
         Write-Host 'SPNs of ServiceAccountName' -ForegroundColor Cyan
         setspn /l $ServiceAccountName
 
 
-        # allow delegation
-        Set-ADUser -Identity $ServiceAccountName –add @{'msDS-AllowedToDelegateTo'=$delegate_to_service_name} 
-        Set-ADUser -Identity $ServiceAccountName –add @{'msDS-AllowedToDelegateTo'=($delegate_to_service_name + '.' + $domain_dns_name)}
+        # Allow delegation
+        ## Delegate short name.
+        Write-Host "Try:\> Set-ADUser -Identity $ServiceAccountName –add @{'msDS-AllowedToDelegateTo'=$short_delegate_to_name}" -ForegroundColor Cyan
+        Set-ADUser -Identity $ServiceAccountName –add @{'msDS-AllowedToDelegateTo'=$short_delegate_to_name} 
+        ## Delegate long name.
+        Write-Host "Try:\> Set-ADUser -Identity $ServiceAccountName –add @{'msDS-AllowedToDelegateTo'=$delegate_to_service_name}" -ForegroundColor Cyan
+        Set-ADUser -Identity $ServiceAccountName –add @{'msDS-AllowedToDelegateTo'=$delegate_to_service_name}
         Write-Host "ServiceAccountName.msDS-AllowedToDelegateTo:" -ForegroundColor Cyan
         (Get-ADUser -Identity $ServiceAccountName -Properties *).'msDS-AllowedToDelegateTo'
-    }
+        if (-not($error))
+        {
+            Write-Host "GARP good" -ForegroundColor Green
+        }
+        else
+        {
+            Write-Host "Check and repair errors and retry. Run help Add-SPNsAndKerberosDelegation, help Add-SPNsAndKerberosDelegation -Examples, Help Get-SPNsAndKerberosDelegation -Examples, help Remove-SPNsAndKerberosDelegation -Examples"
+        }
 }
 
 <#
@@ -290,10 +304,6 @@ function Get-SPN                                                                
     }
     } #Get-Spn
 
-
-#Add-SPNsAndKerberosDelegation -domain_dns_name test.one -ServiceAccountName mimpool -service_name http/newmim -delegate_to_service_name fimservice/mimservicecli 
-
-#Add-SPNsAndKerberosDelegation -domain_dns_name test.one -ServiceAccountName mimpool -service_name http/mim -delegate_to_service_name fimservice/mimwithallroles
 
 
 
