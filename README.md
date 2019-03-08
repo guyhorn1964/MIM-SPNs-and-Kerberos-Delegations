@@ -5,7 +5,7 @@ Logics ===>>>
 
 MIM needs to set two Service Principal Names:
 1) http/<custom portal name> will be controlled by the 'Mimpool' account that runs the IIS application Pool.
- 2) fimservice/<MIM service server name> or fimservice/<MIM service server custom name> will be controlled 'Mimservice'that runs the FIMSERVICE service
+ 2) fimservice/<MIM service server name> or fimservice/<MIM service server custom name> will be controlled by the 'Mimservice' service account that runs the FIMSERVICE service
  Each custom name must have an A-record and not a Cname record in the DNS.
     
 MIM needs to delegate two Kerberos names:
