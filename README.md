@@ -1,5 +1,5 @@
 # MIM-SPNs-and-Kerberos-Delegations
-PowerShell module to get, add and remove Service Principal Names and Kerberos Delegations for MIM service accounts. This module helps preventing mistakes by tying together service_account, SPN and delegation for MIM. The Remove-SPNsAndKerberosDelegation has a safety feature. It lets you see what your'e going to remove. You must type 'Yes' before something happens.
+PowerShell module to get, add and remove Service Principal Names and Kerberos Delegations for MIM service accounts. This module helps preventing mistakes by tying together service_account, SPN and delegation for MIM. The Remove-SPNsAndKerberosDelegation has a safety feature. It lets you see what your'e going to remove. You must type 'Yes' before something happens. I added some checks to prevent adding SPN in wrong format using the well known http://. So any SPN with '//' or ':' will not be accepted. Read the article mentioned under credits to understand your own specific situation. You can still define the wront values using my script.
 
 Logics ===>>>
 
